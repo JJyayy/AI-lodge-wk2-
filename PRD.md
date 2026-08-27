@@ -240,3 +240,4 @@ gantt
 ### 9.3 Dependencies
 - Browser Web Storage APIs (`localStorage`, `IndexedDB`).
 - Modern lightweight icon set (e.g. Lucide / SVG icons).
+

@@ -1,6 +1,6 @@
 # 📝 TaskFlow – Smart To-Do & Productivity Application
 
-> An intuitive, offline-first task management web application engineered for speed, visual clarity, and seamless organization.
+> An intuitive, offline-resilient, production-ready task management web application engineered for speed, visual clarity, and seamless organization.
 
 [![Status](https://img.shields.io/badge/status-active-success.svg)]()
 [![Documentation](https://img.shields.io/badge/docs-PRD%20%26%20Design-blue.svg)]()
@@ -9,40 +9,141 @@
 
 ---
 
-## 🌟 Overview
+## 🌟 Overview & Architecture
 
-**TaskFlow** bridges the gap between over-complicated enterprise project tools and bare-bones list apps. It provides:
-- **Instant Capture:** Frictionless task creation with keyboard shortcuts (`Enter`, `Esc`, `Ctrl+K`).
-- **Eisenhower Prioritization:** Visual P1 (Urgent), P2 (High), P3 (Medium), and P4 (Low) indicators.
-- **Offline-First Resilience:** 100% functional without an active internet connection via client-side storage.
-- **Progress Tracking:** Dynamic daily completion progress bar and task status breakdown.
-- **Dark & Light Mode:** Modern, accessible theme switching tailored for day and night productivity.
+**TaskFlow** is structured with complete separation of concerns between frontend, backend, and database:
 
----
+- **`frontend/` (React + Vite + TypeScript)**
+  - Fast, accessible UI adhering to WCAG 2.1 Level AA.
+  - Dark & Light mode toggle with OS preference detection.
+  - Offline-first fallback persistence in `localStorage` with JSON export/import.
+  - Communicates with the backend exclusively via HTTPS REST API using `VITE_API_URL`.
+  - Uses Supabase directly *only* for email/password authentication to acquire user access tokens.
 
-## 📚 Project Documentation
+- **`backend/` (Python + FastAPI)**
+  - API-only backend compatible with Vercel Python serverless runtime.
+  - Validates Supabase Bearer JWT tokens and derives user IDs securely (never trusts client-supplied user IDs).
+  - Sanitizes all inputs against Cross-Site Scripting (XSS).
+  - Executes database operations in Supabase PostgREST within authenticated user RLS context.
+  - Strict CORS origin enforcement (never `*` in production).
 
-Detailed specification and architecture documents for this project:
-
-- 📄 **[Product Requirements Document (PRD.md)](./PRD.md)**
-  - Product Vision & Executive Summary
-  - User Personas & User Stories with Acceptance Criteria
-  - Functional Requirements (`FR-1` to `FR-7`)
-  - Non-Functional Requirements (`NFR-1` to `NFR-6`)
-  - Release Roadmap & KPI Targets
-
-- 📐 **[Technical & System Design Document (design.md)](./design.md)**
-  - System Architecture & Reactive State Store Design
-  - Component Hierarchy & Flow Diagrams
-  - TypeScript Entity Schemas (`Task`, `SubTask`, `Category`, `PriorityLevel`)
-  - Mermaid Sequence Diagrams for Core Workflows
-  - UI/UX Design System Tokens & Wireframes
-  - Storage Adapters (`IStorageAdapter`) & Cloud REST API Contract
-  - Requirements Traceability Matrix
+- **`supabase/` (PostgreSQL Database & RLS)**
+  - Native Email/Password authentication.
+  - Strict owner-only Row Level Security (RLS) policies for `SELECT`, `INSERT`, `UPDATE`, and `DELETE`.
+  - Zero exposure or requirement of admin `service_role` secret keys.
 
 ---
 
-## ⌨️ Quick Keyboard Shortcuts
+## 📁 Repository Structure
+
+```
+.
+├── backend/                  # FastAPI Python backend
+│   ├── api/index.py          # Vercel serverless entrypoint
+│   ├── app/                  # Main application, config, auth, models, db, routes, services
+│   ├── tests/                # Pytest test suite
+│   ├── requirements.txt      # Python dependencies
+│   ├── vercel.json           # Backend Vercel deployment config
+│   ├── .env.example          # Safe template for backend environment variables
+│   └── README.md
+│
+├── frontend/                 # React + Vite frontend
+│   ├── src/
+│   │   ├── components/       # UI components (Navbar, Stats, Inputs, Tasks, Modals, Toasts)
+│   │   ├── context/          # AuthContext & TaskContext
+│   │   ├── services/         # api.ts, supabase.ts, storage.ts
+│   │   ├── styles/           # Design system tokens and styles
+│   │   └── types/            # TypeScript interfaces
+│   ├── tests/                # Vitest test suite
+│   ├── package.json          # Node dependencies & scripts
+│   ├── vite.config.ts        # Vite configuration
+│   ├── vercel.json           # Frontend SPA rewrite rules
+│   ├── .env.example          # Safe template for frontend environment variables
+│   └── README.md
+│
+├── supabase/                 # Database migrations & security documentation
+│   ├── migrations/           # SQL migration files
+│   └── README.md             # DB schema & RLS policy documentation
+│
+├── PRD.md                    # Product Requirements Document
+├── design.md                 # System & Technical Design Document
+└── README.md                 # Project README
+```
+
+---
+
+## 🚀 Local Development Setup
+
+### 1. Backend Setup (FastAPI)
+```bash
+cd backend
+python -m venv venv
+# Activate virtual environment:
+# On Windows: .\venv\Scripts\Activate.ps1
+# On Mac/Linux: source venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
+# Fill in your SUPABASE_URL and SUPABASE_ANON_KEY in backend/.env
+uvicorn app.main:app --reload --port 8000
+```
+- API Docs: `http://localhost:8000/docs`
+- Health: `http://localhost:8000/api/v1/health`
+
+### 2. Frontend Setup (React + Vite)
+```bash
+cd frontend
+npm install
+cp .env.example .env
+# Set VITE_API_URL=http://localhost:8000 and Supabase credentials in frontend/.env
+npm run dev
+```
+- Web Application: `http://localhost:5173`
+
+---
+
+## 🧪 Running Tests
+
+### Backend Tests
+```bash
+cd backend
+python -m pytest
+```
+
+### Frontend Tests & Type Checking
+```bash
+cd frontend
+npm run test
+npm run build
+```
+
+---
+
+## 🚢 Deploying to Vercel (Independent Projects)
+
+Deploy the **Frontend** and **Backend** as two separate Vercel projects:
+
+### 1. Backend Deployment (Vercel Project 1)
+- **Root Directory**: `backend`
+- **Framework Preset**: `Other`
+- **Environment Variables**:
+  - `SUPABASE_URL`: `https://elwihqlydfcutzojsbwu.supabase.co`
+  - `SUPABASE_ANON_KEY`: `<Your Supabase Publishable / Anon Key>`
+  - `ALLOWED_ORIGINS`: `https://<your-frontend-project>.vercel.app`
+  - `ENVIRONMENT`: `production`
+
+### 2. Frontend Deployment (Vercel Project 2)
+- **Root Directory**: `frontend`
+- **Framework Preset**: `Vite`
+- **Build Command**: `npm run build`
+- **Output Directory**: `dist`
+- **Environment Variables**:
+  - `VITE_SUPABASE_URL`: `https://elwihqlydfcutzojsbwu.supabase.co`
+  - `VITE_SUPABASE_ANON_KEY`: `<Your Supabase Publishable / Anon Key>`
+  - `VITE_API_URL`: `https://<your-backend-project>.vercel.app` (URL from Project 1)
+
+---
+
+## ⌨️ Keyboard Shortcuts
 
 | Shortcut | Action |
 | :--- | :--- |
@@ -50,19 +151,3 @@ Detailed specification and architecture documents for this project:
 | `Enter` | Save / Submit Task |
 | `Esc` | Clear Input / Close Modal |
 | `Alt + D` | Toggle Dark / Light Theme |
-
----
-
-## 🛠️ Tech Stack & Architecture
-
-- **Frontend:** HTML5, Modern Vanilla CSS (Tokens & Variables), JavaScript / TypeScript
-- **State Management:** Reactive Reducer / Unidirectional Data Flow
-- **Persistence:** `localStorage` / `IndexedDB` Adapter with JSON Export & Import
-- **Quality & A11y:** WCAG 2.1 Level AA, Lighthouse Score Target ≥ 95
-
----
-
-## 👥 Contributors
-
-- **Author:** [JJyayy](https://github.com/JJyayy)
-- **Course / Program:** SMU AI Lodge – Week 2 Project
